@@ -4,6 +4,7 @@ import cv2
 
 from boundingbox import BBox
 from detector import YoloDetector
+from tracker import NaiveObjectTracker
 
 
 # ------------ PARAMETERS ------------
@@ -12,7 +13,7 @@ SHOW_OUTPUT = False
 SAVE_OUTPUT = True
 PERF_INFO_IN_VIDEO = True
 INPUT_FILENAME = "/cluster/home/lilianma/test_pictures/highway_10sec.mp4" # 0 for webcam
-OUTPUT_FILENAME = "/cluster/home/lilianma/test_pictures/output.avi"
+OUTPUT_FILENAME = "/cluster/home/lilianma/test_pictures/highway10sec_output.avi"
 OUTPUT_4C_CODEC = 'MJPG'
 DETECTION_THRESHOLD = 0.5
 NMS_THRESHOLD = 0.4
@@ -27,8 +28,8 @@ yolo_tiny_weights = "detectors/yolov4-tiny/yolov4-tiny.weights"
 # ------------------------------------
 
 detector = YoloDetector(
-    #yolo_tiny_config,
-    #yolo_tiny_weights,
+    # yolo_tiny_config,
+    # yolo_tiny_weights,
     yolo_config,
     yolo_weights,
     (416, 416),
@@ -36,6 +37,8 @@ detector = YoloDetector(
     DETECTION_THRESHOLD,
     NMS_THRESHOLD
 )
+tracker = NaiveObjectTracker()
+
 
 # GPU/CPU
 if USE_GPU:
@@ -61,17 +64,19 @@ try:
         has_frame, frame = video_source.read()
         if not has_frame:
             break
-        print(f"Processing frame {n_frame} over {source_nbr_frames}")
+        print(f"[{n_frame/source_nbr_frames:.0%}] Processing frame {n_frame} over {source_nbr_frames}...", end=' ')
         frame_rgb = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
         
         # Process frame with Yolo to get the bounding box predictions
         boxes = detector.detect(frame_rgb, perform_nms=True)
+        print(f"{len(boxes)} bounding boxes detected")
+        objects = tracker.track(boxes)
 
         # Drawing the predictions on the frame
         frame_annotated = frame  # Doesn't actually copy the frame but nvm
-        for box in boxes:
-            frame_annotated = cv2.rectangle(frame_annotated, box.p1.as_tuple(), box.p2.as_tuple(), colors[box.class_id].tolist(), 2)
-            frame_annotated = cv2.putText(frame_annotated, f"{box.label} {box.confidence*100:.2f}%", box.pos.as_tuple(), cv2.FONT_HERSHEY_SIMPLEX, .5, (255,)*3)
+        for obj in objects:
+            frame_annotated = cv2.rectangle(frame_annotated, obj.last_bbox.p1.as_tuple(), obj.last_bbox.p2.as_tuple(), obj.color.tolist(), 2)
+            frame_annotated = cv2.putText(frame_annotated, obj.repr(), obj.last_bbox.pos.as_tuple(), cv2.FONT_HERSHEY_SIMPLEX, .5, (255,)*3)
 
         # Printing performance info in frame
         if PERF_INFO_IN_VIDEO:
