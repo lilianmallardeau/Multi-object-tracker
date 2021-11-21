@@ -39,7 +39,9 @@ class AbstractDetector():
 class YoloDetector(AbstractDetector):
     def __init__(self, cfg_file: str, weights_file: str, input_size: tuple, names_file: str, conf_threshold: float = 0.5, nms_threshold: float = 0.4):
         super(YoloDetector, self).__init__(names_file, conf_threshold, nms_threshold)
+        print(f"Loading network from Darknet... ", end='')
         self.net = cv2.dnn.readNetFromDarknet(cfg_file, weights_file)
+        print("Done")
         self.input_size = input_size[:2]
     
     def detect(self, frame, perform_nms=True):
@@ -59,6 +61,41 @@ class YoloDetector(AbstractDetector):
                 boxes.append(BBox(
                     Point(center_x - w/2, center_y - h/2),
                     (w, h),
+                    confidence,
+                    class_id=class_id,
+                    label=self.labels[class_id]
+                ))
+        return self.perform_nms(boxes) if perform_nms else boxes
+
+
+class SSDDetector(AbstractDetector):
+    def __init__(self, proto_file: str, weights_file: str, input_size: tuple, names_file: str, conf_threshold: float = 0.5, nms_threshold: float = 0.4):
+        super(SSDDetector, self).__init__(names_file, conf_threshold, nms_threshold)
+        print(f"Loading network from Caffe... ", end='')
+        self.net = cv2.dnn.readNetFromCaffe(proto_file, weights_file)
+        print("Done")
+        self.input_size = input_size[:2]
+    
+    def detect(self, frame, perform_nms=False):
+        blob = cv2.dnn.blobFromImage(frame, 0.007843, self.input_size, (127.5, 127.5, 127.5), swapRB=False, crop=False)
+        self.net.setInput(blob)
+        # t = time.time()
+        detections = self.net.forward()
+        # print(time.time()-t)
+        boxes = []
+        for i in range(detections.shape[2]):
+            confidence = detections[0, 0, i, 2]
+            if confidence > self.conf_threshold:
+                class_id = int(detections[0, 0, i, 1]) # Class label
+                x_left_bottom = int(detections[0, 0, i, 3] * frame.shape[1])
+                y_left_bottom = int(detections[0, 0, i, 4] * frame.shape[0])
+                x_right_top = int(detections[0, 0, i, 5] * frame.shape[1])
+                y_right_top = int(detections[0, 0, i, 6] * frame.shape[0])
+                width = np.abs(x_right_top - x_left_bottom)
+                heigth = np.abs(y_right_top - y_left_bottom)
+                boxes.append(BBox(
+                    Point(x_left_bottom, y_left_bottom+heigth),
+                    (width, heigth),
                     confidence,
                     class_id=class_id,
                     label=self.labels[class_id]

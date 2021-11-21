@@ -30,6 +30,14 @@ def ensure_bbox_type(func):
 
 class BBox():
     def __init__(self, pos: Point, size: tuple, confidence: float, class_id: int=None, label: str=None, object_id: int=None):
+        """
+        Arguments:
+            pos [Point]: top left corner of the bounding box
+            size [tuple]: (width, height) tuple of the size of the bounding box
+            class_id [int]: class id of detected object
+            label [str]: optional, label of the detected object
+            object_id [int]: optional, object id of the corresponding tracked object
+        """
         self.pos = pos if type(pos) is Point else Point(pos)
         self.size = (int(size[0]), int(size[1]))
         self.confidence = confidence
@@ -39,10 +47,12 @@ class BBox():
     
     @property
     def p1(self):
+        """ Top left corner of the bounding box """
         return self.pos
     
     @property
     def p2(self):
+        """ Bottom right corner of the bounding box """
         return Point(
             self.pos.x + self.size[0],
             self.pos.y + self.size[1]
@@ -50,6 +60,7 @@ class BBox():
     
     @property
     def center(self):
+        """ Center of the bounding box """
         return Point(
             self.pos.x + self.size[0]/2,
             self.pos.y + self.size[1]/2,
@@ -57,10 +68,12 @@ class BBox():
     
     @property
     def width(self):
+        """ Width of the bounding box """
         return self.size[0]
 
     @property
     def height(self):
+        """ Height of the bounding box """
         return self.size[1]
     
     @property
@@ -69,6 +82,7 @@ class BBox():
     
     @property
     def bbox(self):
+        """ Bounding box as list as [top_left.x, top_left.y, width, height] """
         p1 = self.p1
         return [p1.x, p1.y, self.width, self.height]
 
