@@ -1,4 +1,6 @@
 #!/usr/bin/env python3
+import argparse
+import os
 import numpy as np
 import cv2
 
@@ -7,18 +9,34 @@ from detector import YoloDetector, SSDDetector
 from tracker import NaiveObjectTracker
 
 
-# ------------ PARAMETERS ------------
-USE_GPU = True
-SHOW_OUTPUT = False
-SAVE_OUTPUT = True
-PERF_INFO_IN_VIDEO = True
-SHOW_DETECTIONS = False
-SHOW_TRACKED_OBJECTS = True
-INPUT_FILENAME = "/cluster/home/lilianma/test_pictures/highway_10sec.mp4" # 0 for webcam
-OUTPUT_FILENAME = "output/ssd_highway10sec.avi"
-OUTPUT_4C_CODEC = 'MJPG'
-DETECTION_THRESHOLD = 0.5
-NMS_THRESHOLD = 0.4
+# Arguments parsing
+parser = argparse.ArgumentParser()
+parser.add_argument("action", choices=["detect", "track"], help="Action to perform: detection [detect] or tracking [track]", type=str)
+parser.add_argument("detector", type=str, help="Detector to use", choices=['yolo', 'yolotiny', 'ssd'])
+parser.add_argument("tracker", type=str, help="Tracker to use", choices=['naive-tracker'])
+parser.add_argument("input_filename", type=str, help="Input file")
+parser.add_argument("--output", "-o", default=None, dest="output_filename", type=str, help="Output file")
+parser.add_argument("--gpu", "--cuda", default=True, dest="gpu", help="Enable CUDA", action="store_true")
+parser.add_argument("--show-perf", default=True, dest="show_perf", help="Show real time performance in output video", action="store_true")
+#parser.add_argument("--print-perf", default=False, dest="print_perf", help="Print real time performance in the console", action="store_true")
+parser.add_argument("--4c-codec", "--fourc-codec", "--codec", "--4cc", default="mp4v", dest="codec", type=str, help="Fourc codec for the output video")
+parser.add_argument("--conf-threshold", default=0.5, dest="conf_threshold", type=float, help="Confidence threshold for object detection")
+parser.add_argument("--nms-threshold", default=0.4, dest="nms_threshold", type=float, help="Non maximum suppression threshold")
+parser.add_argument("--show-output", default=False, dest="show_output", help="Show the real time output with OpenCV", action="store_true")
+parser.add_argument("--no-save", default=True, dest="save_output", help="Don't save the output video to a file", action="store_false")
+args = parser.parse_args()
+
+if args.output_filename == None:
+    action = "detection" if args.action == "detect" else "tracking"
+    tracker = f"_{args.tracker}" if args.action == "track" else ""
+    args.output_filename = f"output/{action}_{args.detector}{tracker}_{os.path.basename(args.input_filename)}"
+    try: os.makedirs("output/", exist_ok=True)
+    except: exit('A file named "output" already exists')
+
+
+# --------- Model parameters ---------
+DETECTION_THRESHOLD = args.conf_threshold
+NMS_THRESHOLD = args.nms_threshold
 
 # Yolo
 yolo_config = "detectors/yolov4/yolov4.cfg"
@@ -32,43 +50,50 @@ ssd_proto = "detectors/ssd/SSD_MobileNet_prototxt.txt"
 ssd_weigths = "detectors/ssd/SSD_MobileNet.caffemodel"
 labels_file_ssd = "detectors/ssd/ssd.names"
 
-# ------------------------------------
 
-yolo_detector = YoloDetector(
-    yolo_config,
-    yolo_weights,
-    (416, 416),
-    labels_file_yolo,
-    DETECTION_THRESHOLD,
-    NMS_THRESHOLD
-)
-yolotiny_detector = YoloDetector(
-    yolo_tiny_config,
-    yolo_tiny_weights,
-    (416, 416),
-    labels_file_yolo,
-    DETECTION_THRESHOLD,
-    NMS_THRESHOLD
-)
-ssd_detector = SSDDetector(
-    ssd_proto,
-    ssd_weigths,
-    (300, 300),
-    labels_file_ssd,
-    DETECTION_THRESHOLD,
-    NMS_THRESHOLD
-)
-detector = ssd_detector
-tracker = NaiveObjectTracker()
-
+# --------- Loading detector ---------
+if args.detector == 'yolo':
+    detector = YoloDetector(
+        yolo_config,
+        yolo_weights,
+        (416, 416),
+        labels_file_yolo,
+        DETECTION_THRESHOLD,
+        NMS_THRESHOLD
+    )
+if args.detector == 'yolotiny':
+    detector = YoloDetector(
+        yolo_tiny_config,
+        yolo_tiny_weights,
+        (416, 416),
+        labels_file_yolo,
+        DETECTION_THRESHOLD,
+        NMS_THRESHOLD
+    )
+if args.detector == 'ssd':
+    detector = SSDDetector(
+        ssd_proto,
+        ssd_weigths,
+        (300, 300),
+        labels_file_ssd,
+        DETECTION_THRESHOLD,
+        NMS_THRESHOLD
+    )
 
 # GPU/CPU
-if USE_GPU:
+if args.gpu:
     detector.enableCuda()
 
 colors = np.uint8(np.random.uniform(0, 255, (detector.n_classes, 3)))
 
-video_source = cv2.VideoCapture(INPUT_FILENAME)
+
+# --------- Loading tracker ---------
+if args.tracker == 'naive-tracker':
+    tracker = NaiveObjectTracker()
+
+
+# -------------- Input --------------
+video_source = cv2.VideoCapture(args.input_filename)
 source_nbr_frames = int(video_source.get(cv2.CAP_PROP_FRAME_COUNT))
 source_fps = video_source.get(cv2.CAP_PROP_FPS)
 source_size = (
@@ -76,10 +101,14 @@ source_size = (
     int(video_source.get(cv2.CAP_PROP_FRAME_HEIGHT))
 )
 
-if SAVE_OUTPUT:
-    out_codec = cv2.VideoWriter_fourcc(*OUTPUT_4C_CODEC)
-    out = cv2.VideoWriter(OUTPUT_FILENAME, out_codec, int(source_fps), source_size)
 
+# -------------- Output --------------
+if args.save_output:
+    out_codec = cv2.VideoWriter_fourcc(*args.codec)
+    out = cv2.VideoWriter(args.output_filename, out_codec, int(source_fps), source_size)
+
+
+# ------------- Processing ------------
 n_frame = 1
 try:
     while video_source.isOpened():
@@ -92,25 +121,25 @@ try:
         # Process frame with the detector to get the bounding box predictions
         boxes = detector.detect(frame)
         print(f"{len(boxes)} bounding boxes detected")
-        objects = tracker.track(boxes)
 
         # --- Drawing --- #
         frame_annotated = frame  # Doesn't actually copy the frame but nvm
 
         # Drawing detections bounding boxes, if enabled
-        if SHOW_DETECTIONS:
+        if args.action == "detect":
             for box in boxes:
                 frame_annotated = cv2.rectangle(frame_annotated, box.p1.as_tuple(), box.p2.as_tuple(), colors[box.class_id].tolist(), 2)
                 frame_annotated = cv2.putText(frame_annotated, f"{box.label} {box.confidence*100:.2f}%", box.pos.as_tuple(), cv2.FONT_HERSHEY_SIMPLEX, .5, (255,)*3)
 
         # Drawing the tracked objects on the frame
-        if SHOW_TRACKED_OBJECTS:
+        if args.action == "track":
+            objects = tracker.track(boxes)
             for obj in objects:
                 frame_annotated = cv2.rectangle(frame_annotated, obj.last_bbox.p1.as_tuple(), obj.last_bbox.p2.as_tuple(), obj.color.tolist(), 2)
                 frame_annotated = cv2.putText(frame_annotated, obj.repr(), obj.last_bbox.pos.as_tuple(), cv2.FONT_HERSHEY_SIMPLEX, .5, (255,)*3)
 
         # Printing performance info in frame
-        if PERF_INFO_IN_VIDEO:
+        if args.show_perf:
             t, _ = detector.net.getPerfProfile()
             text = f"Inference time: {(t*1000 / cv2.getTickFrequency()):.2f} ms"
             fps = cv2.getTickFrequency() / t
@@ -118,11 +147,11 @@ try:
             frame_annotated = cv2.putText(frame_annotated, f"fps: {fps:.4f}", (0, 30), cv2.FONT_HERSHEY_SIMPLEX, .5, (0,0,255))
 
         # Saving the frame in the output file
-        if SAVE_OUTPUT:
+        if args.save_output:
             out.write(frame_annotated)
 
         # Showing the frame with cv2.imshow
-        if SHOW_OUTPUT:
+        if args.show_output:
             cv2.imshow("Detection", frame_annotated)
             cv2.waitKey(1)
         
@@ -131,7 +160,7 @@ except KeyboardInterrupt:
     pass
 
 video_source.release()
-if SAVE_OUTPUT:
+if args.save_output:
     out.release()
 
 cv2.destroyAllWindows()
