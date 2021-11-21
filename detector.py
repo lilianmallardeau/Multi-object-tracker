@@ -52,15 +52,15 @@ class YoloDetector(AbstractDetector):
         # print(time.time()-t)
         boxes = []
         for detection in np.concatenate(detections):
-            center_x, center_y, w, h = detection[:4] * np.array((frame.shape[1], frame.shape[0])*2)
+            center_x, center_y, width, height = detection[:4] * np.array((frame.shape[1], frame.shape[0])*2)
             #score = detection[4]
             class_probabilities = detection[5:]
             class_id = np.argmax(class_probabilities)
             confidence = class_probabilities[class_id]
             if confidence > self.conf_threshold:
                 boxes.append(BBox(
-                    Point(center_x - w/2, center_y - h/2),
-                    (w, h),
+                    Point(center_x - width/2, center_y - height/2),
+                    (width, height),
                     confidence,
                     class_id=class_id,
                     label=self.labels[class_id]
@@ -87,14 +87,14 @@ class SSDDetector(AbstractDetector):
             confidence = detections[0, 0, i, 2]
             if confidence > self.conf_threshold:
                 class_id = int(detections[0, 0, i, 1]) # Class label
-                x_left_bottom = int(detections[0, 0, i, 3] * frame.shape[1])
-                y_left_bottom = int(detections[0, 0, i, 4] * frame.shape[0])
-                x_right_top = int(detections[0, 0, i, 5] * frame.shape[1])
-                y_right_top = int(detections[0, 0, i, 6] * frame.shape[0])
-                width = np.abs(x_right_top - x_left_bottom)
-                heigth = np.abs(y_right_top - y_left_bottom)
+                x_top_left = int(detections[0, 0, i, 3] * frame.shape[1])
+                y_top_left = int(detections[0, 0, i, 4] * frame.shape[0])
+                x_bottom_right = int(detections[0, 0, i, 5] * frame.shape[1])
+                y_bottom_right = int(detections[0, 0, i, 6] * frame.shape[0])
+                width = np.abs(x_bottom_right - x_top_left)
+                heigth = np.abs(y_bottom_right - y_top_left)
                 boxes.append(BBox(
-                    Point(x_left_bottom, y_left_bottom+heigth),
+                    Point(x_top_left, y_top_left),
                     (width, heigth),
                     confidence,
                     class_id=class_id,

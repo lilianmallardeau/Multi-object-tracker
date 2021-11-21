@@ -15,9 +15,9 @@ PERF_INFO_IN_VIDEO = True
 SHOW_DETECTIONS = False
 SHOW_TRACKED_OBJECTS = True
 INPUT_FILENAME = "/cluster/home/lilianma/test_pictures/highway_10sec.mp4" # 0 for webcam
-OUTPUT_FILENAME = "output/highway_10sec.avi"
+OUTPUT_FILENAME = "output/ssd_highway10sec.avi"
 OUTPUT_4C_CODEC = 'MJPG'
-DETECTION_THRESHOLD = 0.0
+DETECTION_THRESHOLD = 0.5
 NMS_THRESHOLD = 0.4
 
 # Yolo
