@@ -28,7 +28,7 @@ class AbstractDetector():
     
     def perform_nms(self, boxes):
         indices = cv2.dnn.NMSBoxes(
-            [b.bbox for b in boxes],
+            [b.as_list for b in boxes],
             [b.confidence for b in boxes],
             self.conf_threshold,
             self.nms_threshold

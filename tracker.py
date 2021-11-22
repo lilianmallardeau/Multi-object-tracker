@@ -7,6 +7,7 @@ class TrackedObject():
         self.id = id
         self.label = bbox.label
         self.color = color if color else np.uint8(np.random.uniform(0, 255, (3,)))
+        self.first_frame = frame
         self.last_frame = frame
         self.lost = False
 
@@ -24,12 +25,18 @@ class TrackedObject():
 
     def repr(self):
         return f"{self.label} {self.id}: {self.last_bbox.confidence:.2%}"
+    
+    def to_csv(self):
+        return "\n".join([f"{self.first_frame+i},{self.id},{','.join(str(p) for p in bbox.as_list)},-1,-1,-1,-1" for i, bbox in enumerate(self.bboxes)])
 
 
 
 class ObjectTracker():
     def track(self, detections: list):
         raise NotImplementedError("You must override the `track` method in the child tracker class")
+    
+    def to_csv(self):
+        return "\n".join([obj.to_csv() for obj in self.tracked_objects])
 
 
 class NaiveObjectTracker(ObjectTracker):

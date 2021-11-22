@@ -17,13 +17,14 @@ parser.add_argument("tracker", type=str, help="Tracker to use", choices=['naive-
 parser.add_argument("input_filename", type=str, help="Input file")
 parser.add_argument("--output", "-o", default=None, dest="output_filename", type=str, help="Output file")
 parser.add_argument("--gpu", "--cuda", default=True, dest="gpu", help="Enable CUDA", action="store_true")
-parser.add_argument("--show-perf", default=True, dest="show_perf", help="Show real time performance in output video", action="store_true")
+parser.add_argument("--show-perf", default=True, dest="show_perf", help="Show real time performance in the output video", action="store_true")
 #parser.add_argument("--print-perf", default=False, dest="print_perf", help="Print real time performance in the console", action="store_true")
 parser.add_argument("--4c-codec", "--fourc-codec", "--codec", "--4cc", default="mp4v", dest="codec", type=str, help="Fourc codec for the output video")
 parser.add_argument("--conf-threshold", default=0.5, dest="conf_threshold", type=float, help="Confidence threshold for object detection")
 parser.add_argument("--nms-threshold", default=0.4, dest="nms_threshold", type=float, help="Non maximum suppression threshold")
 parser.add_argument("--show-output", default=False, dest="show_output", help="Show the real time output with OpenCV", action="store_true")
 parser.add_argument("--no-save", default=True, dest="save_output", help="Don't save the output video to a file", action="store_false")
+parser.add_argument("--export-csv", default=False, dest="export_csv", help="Export the tracking to a CSV file", type=str)
 args = parser.parse_args()
 
 if args.output_filename == None:
@@ -74,7 +75,7 @@ if args.detector == 'ssd':
     detector = SSDDetector(
         ssd_proto,
         ssd_weigths,
-        (300, 300),
+        (600, 600),
         labels_file_ssd,
         DETECTION_THRESHOLD,
         NMS_THRESHOLD
@@ -162,5 +163,9 @@ except KeyboardInterrupt:
 video_source.release()
 if args.save_output:
     out.release()
+
+if args.export_csv:
+    with open(args.export_csv, 'w') as f:
+        f.write(tracker.to_csv())
 
 cv2.destroyAllWindows()

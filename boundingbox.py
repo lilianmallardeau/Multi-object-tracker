@@ -81,7 +81,7 @@ class BBox():
         return self.width * self.height
     
     @property
-    def bbox(self):
+    def as_list(self):
         """ Bounding box as list as [top_left.x, top_left.y, width, height] """
         p1 = self.p1
         return [p1.x, p1.y, self.width, self.height]
