@@ -12,22 +12,24 @@ class TrackedObject():
         self.lost = False
 
         bbox.object_id = id
-        self.bboxes = [bbox]
+        self._bboxes = [bbox]
+        self._frames = [frame]
     
     @property
     def last_bbox(self):
-        return self.bboxes[-1]
+        return self._bboxes[-1]
     
     def add_bbox(self, bbox: BBox, frame: int):
         bbox.object_id = self.id
-        self.bboxes.append(bbox)
+        self._bboxes.append(bbox)
+        self._frames.append(frame)
         self.last_frame = frame
 
     def repr(self):
         return f"{self.label} {self.id}: {self.last_bbox.confidence:.2%}"
     
     def to_csv(self):
-        return "\n".join([f"{self.first_frame+i},{self.id},{','.join(str(p) for p in bbox.as_list)},-1,-1,-1,-1" for i, bbox in enumerate(self.bboxes)])
+        return "\n".join([f"{frame},{self.id},{','.join(str(p) for p in bbox.as_list)},-1,-1,-1,-1" for frame, bbox in zip(self._frames, self._bboxes)])
 
 
 
@@ -45,16 +47,25 @@ class NaiveObjectTracker(ObjectTracker):
         self.tracked_objects = []
         self.last_detections = None
         self.frame_number = 0
+
+        self._last_object_id = -1
     
     def get_new_id(self):
-        return len(self.tracked_objects)
+        self._last_object_id += 1
+        return self._last_object_id
 
     @property
     def currently_tracked_objects(self):
         return [obj for obj in self.tracked_objects if not obj.lost]
+    
+    @property
+    def tracked_objects_as_dict(self):
+        return {obj.id: obj for obj in self.tracked_objects}
         
     def track(self, detections: list):
-        if self.frame_number == 0 or self.last_detections is None:
+        self.frame_number += 1
+
+        if self.last_detections is None:
             self.tracked_objects = [TrackedObject(self.get_new_id(), detection, self.frame_number) for detection in detections]
         
         else:
@@ -84,5 +95,4 @@ class NaiveObjectTracker(ObjectTracker):
                 obj.lost = True
 
         self.last_detections = detections
-        self.frame_number += 1
         return self.currently_tracked_objects
