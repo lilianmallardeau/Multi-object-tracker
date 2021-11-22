@@ -1,5 +1,6 @@
 __pycache__/
 .vscode/
+data/
 
 # Yolo weights files
 *.weights
