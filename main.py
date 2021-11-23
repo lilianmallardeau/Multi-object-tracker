@@ -179,6 +179,6 @@ if args.save_output:
 
 if args.export_csv and args.action == "track":
     with open(args.export_csv, 'w') as f:
-        f.write(tracker.to_csv())
+        f.write(tracker.to_csv(video_source.video_size[1]))
 
 cv2.destroyAllWindows()

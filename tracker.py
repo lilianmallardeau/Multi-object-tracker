@@ -28,8 +28,8 @@ class TrackedObject():
     def repr(self):
         return f"{self.label} {self.id}: {self.last_bbox.confidence:.2%}"
     
-    def to_csv(self):
-        return "\n".join([f"{frame},{self.id},{','.join(str(p) for p in bbox.as_list)},-1,-1,-1,-1" for frame, bbox in zip(self._frames, self._bboxes)])
+    def to_csv(self, height):
+        return "\n".join([f"{frame},{self.id},{','.join(str(p) for p in bbox.as_list_img_coord(height))},{bbox.confidence},-1,-1,-1" for frame, bbox in zip(self._frames, self._bboxes)])
 
 
 
@@ -37,8 +37,8 @@ class ObjectTracker():
     def track(self, detections: list):
         raise NotImplementedError("You must override the `track` method in the child tracker class")
     
-    def to_csv(self):
-        return "\n".join([obj.to_csv() for obj in self.tracked_objects])
+    def to_csv(self, height):
+        return "\n".join([obj.to_csv(height) for obj in self.tracked_objects])
 
 
 class NaiveObjectTracker(ObjectTracker):

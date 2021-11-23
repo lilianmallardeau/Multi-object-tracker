@@ -16,6 +16,9 @@ class Point():
     def dist(self, p):
         return math.sqrt((self.x - p.x)**2 + (self.y - p.y)**2)
     
+    def as_image_coordinates(self, heigth):
+        return Point(self.x, heigth - self.y)
+    
     def __repr__(self):
         return f"Point({self.x}, {self.y})"
 
@@ -84,6 +87,14 @@ class BBox():
     def as_list(self):
         """ Bounding box as list as [top_left.x, top_left.y, width, height] """
         p1 = self.p1
+        return [p1.x, p1.y, self.width, self.height]
+    
+    def as_list_img_coord(self, heigth):
+        """
+        Bounding box as list as [top_left.x, top_left.y, width, height]
+        Specify the `heigth` parameter to convert to image coordinates
+        """
+        p1 = self.p1.as_image_coordinates(heigth)
         return [p1.x, p1.y, self.width, self.height]
 
     @ensure_bbox_type
