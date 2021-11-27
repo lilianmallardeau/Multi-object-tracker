@@ -33,6 +33,7 @@ output.add_argument("--no-save", default=True, dest="save_output", help="Don't s
 parser.add_argument("--4c-codec", "--fourc-codec", "--codec", "--4cc", default="mp4v", dest="codec", type=str, help="Fourc codec for the output video")
 parser.add_argument("--show-output", default=False, dest="show_output", help="Show the real time output with OpenCV", action="store_true")
 parser.add_argument("--export-csv", default=False, dest="export_csv", help="Export the tracking to a CSV file", type=str)
+parser.add_argument("--filter-class", default=None, dest="filter_class", help="Class labels to filter, separated by commas. Example: to track only cars, persons and birds, use: --filter-class car,person,bird", metavar="label1[,label2[,...]]", type=str)
 args = parser.parse_args()
 
 if args.output_filename == None:
@@ -101,6 +102,11 @@ if args.gpu:
 
 colors = np.uint8(np.random.uniform(0, 255, (detector.n_classes, 3)))
 
+if args.filter_class:
+    args.filter_class = args.filter_class.split(',')
+    for filtered_label in args.filter_class:
+        if not filtered_label in detector.labels:
+            exit(f"{filtered_label} is not a existing class label for the selected detector.")
 
 # --------- Loading tracker ---------
 if args.tracker == 'naive-tracker':
@@ -134,6 +140,8 @@ try:
         
         # Process frame with the detector to get the bounding box predictions
         boxes = detector.detect(frame)
+        if args.filter_class:
+            boxes = [b for b in boxes if b.label in args.filter_class]
         print(f"{len(boxes)} bounding boxes detected")
 
         # --- Drawing --- #

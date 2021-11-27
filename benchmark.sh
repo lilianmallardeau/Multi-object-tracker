@@ -2,6 +2,7 @@
 
 DETECTOR="yolo"
 TRACKER="naive-tracker"
+EXTRA_OPTIONS="--filter-class person"
 PERFORM_TRACKING=true
 PERFORM_BENCHMARK=true
 METRICS="HOTA CLEAR Identity VACE"
@@ -25,7 +26,7 @@ if [ $PERFORM_TRACKING = true ]; then
     fi
     for example in data/${BENCHMARK}/train/*; do
         echo Performing tracking in ${example}...
-        ./main.py track $DETECTOR $TRACKER --glob "${example}/img1/*" --output "$OUTPUT_FOLDER/$(basename $example).mp4" --export-csv "$OUTPUT_FOLDER/$(basename $example).txt"
+        ./main.py track $DETECTOR $TRACKER --glob "${example}/img1/*" --output "$OUTPUT_FOLDER/$(basename $example).mp4" --export-csv "$OUTPUT_FOLDER/$(basename $example).txt" ${EXTRA_OPTIONS}
         echo
     done
     wait
