@@ -7,14 +7,14 @@ import cv2
 from videosource import VideoFile, GlobFrames, Camera
 from boundingbox import BBox
 from detector import YoloDetector, SSDDetector
-from tracker import NaiveObjectTracker
+from tracker import NaiveObjectTracker, KalmanObjectTracker
 
 
 # Arguments parsing
 parser = argparse.ArgumentParser()
 parser.add_argument("action", choices=["detect", "track"], help="Action to perform: detection [detect] or tracking [track]", type=str)
 parser.add_argument("detector", type=str, help="Detector to use", choices=['yolo', 'yolotiny', 'ssd'])
-parser.add_argument("tracker", type=str, help="Tracker to use", choices=['naive-tracker'])
+parser.add_argument("tracker", type=str, help="Tracker to use", choices=['naive-tracker', 'kalman-tracker'])
 
 video_input = parser.add_mutually_exclusive_group()
 video_input.add_argument("--input-filename", "-i", dest="input_filename", type=str, help="Input file")
@@ -111,6 +111,8 @@ if args.filter_class:
 # --------- Loading tracker ---------
 if args.tracker == 'naive-tracker':
     tracker = NaiveObjectTracker()
+elif args.tracker == 'kalman-tracker':
+    tracker = KalmanObjectTracker(detector.labels)
 
 
 # -------------- Input --------------

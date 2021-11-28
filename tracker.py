@@ -1,15 +1,18 @@
+import uuid
 import numpy as np
 from boundingbox import BBox
 
+from motpy import Detection, MultiObjectTracker
+
 
 class TrackedObject():
-    def __init__(self, id, bbox: BBox, frame: int, color=None):
+    def __init__(self, id: int, bbox: BBox, frame: int, uuid=uuid.uuid4(), color=None):
+        self.uuid = uuid
         self.id = id
         self.label = bbox.label
         self.color = color if color else np.uint8(np.random.uniform(0, 255, (3,)))
         self.first_frame = frame
         self.last_frame = frame
-        self.lost = False
 
         bbox.object_id = id
         self._bboxes = [bbox]
@@ -21,6 +24,7 @@ class TrackedObject():
     
     def add_bbox(self, bbox: BBox, frame: int):
         bbox.object_id = self.id
+        if bbox.label: self.label = bbox.label
         self._bboxes.append(bbox)
         self._frames.append(frame)
         self.last_frame = frame
@@ -34,46 +38,57 @@ class TrackedObject():
 
 
 class ObjectTracker():
-    def track(self, detections: list):
-        raise NotImplementedError("You must override the `track` method in the child tracker class")
-    
-    def to_csv(self, height):
-        return "\n".join([obj.to_csv(height) for obj in self.tracked_objects])
-
-
-class NaiveObjectTracker(ObjectTracker):
-    def __init__(self, distance_threshold=np.inf):
-        self.distance_threshold = distance_threshold
+    def __init__(self):
         self.tracked_objects = []
-        self.last_detections = None
-        self.frame_number = 0
-
-        self._last_object_id = -1
+        self._last_detections = None
+        self._frame_number = 0
+        self._last_object_id = 0
     
     def get_new_id(self):
         self._last_object_id += 1
         return self._last_object_id
 
     @property
-    def currently_tracked_objects(self):
-        return [obj for obj in self.tracked_objects if not obj.lost]
+    def active_objects(self):
+        return [obj for obj in self.tracked_objects if obj.last_frame == self._frame_number]
     
     @property
-    def tracked_objects_as_dict(self):
+    def tracked_objects_by_id(self):
         return {obj.id: obj for obj in self.tracked_objects}
-        
-    def track(self, detections: list):
-        self.frame_number += 1
+    
+    @property
+    def tracked_objects_by_uuid(self):
+        return {obj.uuid: obj for obj in self.tracked_objects}
 
-        if self.last_detections is None:
-            self.tracked_objects = [TrackedObject(self.get_new_id(), detection, self.frame_number) for detection in detections]
+    def track(self, detections: list):
+        self._frame_number += 1
+        self._track(detections)
+        self._last_detections = detections
+        return self.active_objects
+
+    def _track(self, detections: list):
+        raise NotImplementedError("You must override the `_track` method in your child tracker class")
+    
+    def to_csv(self, height):
+        return "\n".join([obj.to_csv(height) for obj in self.tracked_objects])
+
+
+
+class NaiveObjectTracker(ObjectTracker):
+    def __init__(self, distance_threshold=np.inf):
+        super(NaiveObjectTracker, self).__init__()
+        self.distance_threshold = distance_threshold
+    
+    def _track(self, detections: list):
+        if self._last_detections is None:
+            self.tracked_objects = [TrackedObject(self.get_new_id(), detection, self._frame_number) for detection in detections]
         
         else:
             labels = {detection.label for detection in detections}
             objects_by_class = {label: [d for d in detections if d.label == label] for label in labels}
             
             for label, new_detections in objects_by_class.items():
-                previous_detections = [d for d in self.last_detections if d.label == label]
+                previous_detections = [d for d in self._last_detections if d.label == label]
 
                 bbox_distances = np.full((len(new_detections), len(previous_detections)), np.inf)
                 for i, new_detection in enumerate(new_detections):
@@ -84,15 +99,31 @@ class NaiveObjectTracker(ObjectTracker):
                     argmin = np.unravel_index(np.argmin(bbox_distances), bbox_distances.shape)
                     bbox_distances = np.delete(bbox_distances, argmin[0], 0)
                     bbox_distances = np.delete(bbox_distances, argmin[1], 1)
-                    self.tracked_objects[previous_detections.pop(argmin[1]).object_id].add_bbox(new_detections.pop(argmin[0]), self.frame_number)
+                    self.tracked_objects_by_id[previous_detections.pop(argmin[1]).object_id].add_bbox(new_detections.pop(argmin[0]), self._frame_number)
                 for new_bbox in new_detections:
-                    self.tracked_objects.append(TrackedObject(self.get_new_id(), new_bbox, self.frame_number))
-                for lost_bbox in previous_detections:
-                    self.tracked_objects[lost_bbox.object_id].lost = True
-        
-        for obj in self.tracked_objects:
-            if obj.last_frame != self.frame_number:
-                obj.lost = True
+                    self.tracked_objects.append(TrackedObject(self.get_new_id(), new_bbox, self._frame_number))
 
-        self.last_detections = detections
-        return self.currently_tracked_objects
+
+class KalmanObjectTracker(ObjectTracker):
+    def __init__(self, class_labels: list):
+        super(KalmanObjectTracker, self).__init__()
+        self._tracker = MultiObjectTracker(dt=0.1)
+        self._class_labels = class_labels
+
+    def _track(self, detections):
+        self._tracker.step(detections=[Detection(box=[b.p1.x, b.p1.y, b.p2.x, b.p2.y], score=b.confidence, class_id=b.class_id) for b in detections])
+        tracks = self._tracker.active_tracks()
+
+        for track in tracks:
+            xmin, ymin, xmax, ymax = track.box
+            bbox = BBox(
+                pos=(xmin, ymin),
+                size=(np.abs(xmax-xmin), np.abs(ymax-ymin)),
+                confidence=track.score,
+                class_id=track.class_id,
+                label=self._class_labels[track.class_id]
+            )
+            if track.id in self.tracked_objects_by_uuid:
+                self.tracked_objects_by_uuid[track.id].add_bbox(bbox, self._frame_number)
+            else:
+                self.tracked_objects.append(TrackedObject(self.get_new_id(), bbox, self._frame_number, uuid=track.id))
