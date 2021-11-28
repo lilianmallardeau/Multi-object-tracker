@@ -96,7 +96,7 @@ if args.detector == 'ssd':
 
 # GPU/CPU
 if args.gpu:
-    print("Enabling CUDA...", end=' ')
+    print("Enabling CUDA...", end=' ', flush=True)
     detector.enableCuda()
     print("Done")
 
@@ -115,7 +115,7 @@ if args.tracker == 'naive-tracker':
 
 # -------------- Input --------------
 if args.glob:
-    print("Reading pictures from glob...", end=' ')
+    print("Reading pictures from glob...", end=' ', flush=True)
     video_source = GlobFrames(args.glob, fps=25)
     print(f"Done, {video_source.nbr_frames} frames read")
 elif args.camera is not None:
@@ -135,7 +135,7 @@ n_frame = 1
 try:
     while video_source.is_opened() and video_source.has_next_frame():
         frame = video_source.get_next_frame()
-        print(f"[{n_frame/video_source.nbr_frames:.0%}] Processing frame {n_frame} over {video_source.nbr_frames}...", end=' ')
+        print(f"[{n_frame/video_source.nbr_frames:.0%}] Processing frame {n_frame} over {video_source.nbr_frames}...", end=' ', flush=True)
         # frame_rgb = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
         
         # Process frame with the detector to get the bounding box predictions

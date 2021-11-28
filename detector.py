@@ -39,7 +39,7 @@ class AbstractDetector():
 class YoloDetector(AbstractDetector):
     def __init__(self, cfg_file: str, weights_file: str, input_size: tuple, names_file: str, conf_threshold: float = 0.5, nms_threshold: float = 0.4):
         super(YoloDetector, self).__init__(names_file, conf_threshold, nms_threshold)
-        print(f"Loading network from Darknet... ", end='')
+        print(f"Loading network from Darknet... ", end='', flush=True)
         self.net = cv2.dnn.readNetFromDarknet(cfg_file, weights_file)
         print("Done")
         self.input_size = input_size[:2]
@@ -71,7 +71,7 @@ class YoloDetector(AbstractDetector):
 class SSDDetector(AbstractDetector):
     def __init__(self, proto_file: str, weights_file: str, input_size: tuple, names_file: str, conf_threshold: float = 0.5, nms_threshold: float = 0.4):
         super(SSDDetector, self).__init__(names_file, conf_threshold, nms_threshold)
-        print(f"Loading network from Caffe... ", end='')
+        print(f"Loading network from Caffe... ", end='', flush=True)
         self.net = cv2.dnn.readNetFromCaffe(proto_file, weights_file)
         print("Done")
         self.input_size = input_size[:2]
