@@ -1,12 +1,24 @@
 #!/usr/bin/env bash
+set -e
 
-DETECTOR="yolo"
-TRACKER="naive-tracker"
+if [ $# -lt 2 ]; then
+    echo Provide detector and tracker names to use for benchmark
+    echo Use: $0 detector tracker [--no-tracking] [--no-benchmark]
+    exit 1
+fi
+
+DETECTOR="$1"
+TRACKER="$2"
 EXTRA_OPTIONS="--filter-class person"
-PERFORM_TRACKING=true
-PERFORM_BENCHMARK=true
 METRICS="HOTA CLEAR Identity VACE"
 BENCHMARK="MOT17" # MOT15, MO16, MOT17 or MOT20
+
+PERFORM_TRACKING=true
+PERFORM_BENCHMARK=true
+for arg in "$@"; do
+    [ $arg = "--no-tracking" ] && PERFORM_TRACKING=false
+    [ $arg = "--no-benchmark" ] && PERFORM_BENCHMARK=false
+done
 
 OUTPUT_FOLDER="output/${BENCHMARK}/${DETECTOR}_${TRACKER}"
 
@@ -41,8 +53,8 @@ if [ $PERFORM_BENCHMARK = true ]; then
         rm data.zip
         cd ..
     fi
-    mkdir -p TrackEval/data/trackers/mot_challenge/${BENCHMARK}-train/${TRACKER}/data
-    cp ${OUTPUT_FOLDER}/*.txt TrackEval/data/trackers/mot_challenge/${BENCHMARK}-train/${TRACKER}/data
+    mkdir -p "TrackEval/data/trackers/mot_challenge/${BENCHMARK}-train/${DETECTOR}_${TRACKER}/data"
+    cp ${OUTPUT_FOLDER}/*.txt "TrackEval/data/trackers/mot_challenge/${BENCHMARK}-train/${DETECTOR}_${TRACKER}/data"
     cd TrackEval
-    python3 scripts/run_mot_challenge.py --BENCHMARK ${BENCHMARK} --SPLIT_TO_EVAL train --TRACKERS_TO_EVAL ${TRACKER} --METRICS ${METRICS} --USE_PARALLEL True
+    python3 scripts/run_mot_challenge.py --BENCHMARK ${BENCHMARK} --SPLIT_TO_EVAL train --TRACKERS_TO_EVAL "${DETECTOR}_${TRACKER}" --METRICS ${METRICS} --USE_PARALLEL True
 fi
