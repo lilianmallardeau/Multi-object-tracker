@@ -7,14 +7,14 @@ import cv2
 from videosource import VideoFile, GlobFrames, Camera
 from boundingbox import BBox
 from detector import YoloDetector, SSDDetector
-from tracker import NaiveObjectTracker, KalmanObjectTracker
+from tracker import NaiveObjectTracker, KalmanObjectTracker, ByteTrack
 
 
 # Arguments parsing
 parser = argparse.ArgumentParser()
 parser.add_argument("action", choices=["detect", "track"], help="Action to perform: detection [detect] or tracking [track]", type=str)
 parser.add_argument("detector", type=str, help="Detector to use", choices=['yolo', 'yolotiny', 'ssd'])
-parser.add_argument("tracker", type=str, help="Tracker to use", choices=['naive-tracker', 'kalman-tracker'])
+parser.add_argument("tracker", type=str, help="Tracker to use", choices=['naive-tracker', 'kalman-tracker', 'bytetrack'])
 
 video_input = parser.add_mutually_exclusive_group()
 video_input.add_argument("--input-filename", "-i", dest="input_filename", type=str, help="Input file")
@@ -113,6 +113,8 @@ if args.tracker == 'naive-tracker':
     tracker = NaiveObjectTracker()
 elif args.tracker == 'kalman-tracker':
     tracker = KalmanObjectTracker(detector.labels)
+elif args.tracker == 'bytetrack':
+    tracker = ByteTrack()
 
 
 # -------------- Input --------------
@@ -153,7 +155,7 @@ try:
         if args.action == "detect":
             for box in boxes:
                 frame_annotated = cv2.rectangle(frame_annotated, box.p1.as_tuple(), box.p2.as_tuple(), colors[box.class_id].tolist(), 2)
-                frame_annotated = cv2.putText(frame_annotated, f"{box.label} {box.confidence*100:.2f}%", box.pos.as_tuple(), cv2.FONT_HERSHEY_SIMPLEX, .5, (255,)*3)
+                frame_annotated = cv2.putText(frame_annotated, f"{box.label} {box.confidence:.2%}", box.pos.as_tuple(), cv2.FONT_HERSHEY_SIMPLEX, .5, (255,)*3)
 
         # Drawing the tracked objects on the frame
         if args.action == "track":

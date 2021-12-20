@@ -30,7 +30,7 @@ class TrackedObject():
         self.last_frame = frame
 
     def repr(self):
-        return f"{self.label} {self.id}: {self.last_bbox.confidence:.2%}"
+        return f"{self.label if self.label else 'object'} {self.id}: {self.last_bbox.confidence:.2%}"
     
     def to_csv(self):
         return "\n".join([f"{frame},{self.id},{','.join(str(p) for p in bbox.as_list)},{bbox.confidence},-1,-1,-1" for frame, bbox in zip(self._frames, self._bboxes)])
@@ -127,3 +127,34 @@ class KalmanObjectTracker(ObjectTracker):
                 self.tracked_objects_by_uuid[track.id].add_bbox(bbox, self._frame_number)
             else:
                 self.tracked_objects.append(TrackedObject(self.get_new_id(), bbox, self._frame_number, uuid=track.id))
+
+class ByteTrack(ObjectTracker):
+    def __init__(self, track_thresh=0.5, match_thresh=0.8, track_buffer=30):
+        """
+        track_thresh: tracking confidence threshold
+        track_buffer: the frames for keep lost tracks
+        match_thresh: matching threshold for tracking
+        """
+        super(ByteTrack, self).__init__()
+
+        from trackers.ByteTrack.yolox.tracker.byte_tracker import BYTETracker
+        from types import SimpleNamespace
+        args = SimpleNamespace(track_thresh=track_thresh, match_thresh=match_thresh, track_buffer=track_buffer, mot20=None)
+        self._tracker = BYTETracker(args)
+    
+    def _track(self, detections):
+        dets = np.array([(bbox.p1.x, bbox.p1.y, bbox.p2.x, bbox.p2.y, bbox.confidence) for bbox in detections]).reshape((len(detections), 5))
+        online_targets = self._tracker.update(dets, [1, 1], [1, 1])
+        
+        for track in online_targets:
+            left, top, w, h = track.tlwh
+            bbox = BBox(
+                pos=(left, top),
+                size=(w, h),
+                confidence=track.score,
+                object_id=track.track_id
+            )
+            if track.track_id in self.tracked_objects_by_uuid:
+                self.tracked_objects_by_uuid[track.track_id].add_bbox(bbox, self._frame_number)
+            else:
+                self.tracked_objects.append(TrackedObject(self.get_new_id(), bbox, self._frame_number, uuid=track.track_id))

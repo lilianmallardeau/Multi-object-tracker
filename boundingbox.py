@@ -109,4 +109,4 @@ class BBox():
         return self.intersect(bbox) / self.union(bbox)
     
     def __repr__(self):
-        return f"BBox(center={self.center}, size={self.size})"
+        return f"BBox(center=({self.center.x}, {self.center.y}), size={self.size}, confidence={self.confidence:.2f}, label={self.label})"
